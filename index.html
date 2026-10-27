@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#071b10">
+<title>MCU Movie Tracker</title>
+<style>
+:root {
+  --bg:#06150c;
+  --panel:#0d2818;
+  --green:#8df5a5;
+  --border:#285b38;
+  --muted:#aac4b0;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  background:radial-gradient(ellipse at top,#174529,var(--bg) 65%);
+  color:#f0fff2;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+header {
+  text-align:center;
+  padding:28px 16px 18px;
+}
+h1 {
+  margin:0;
+  color:var(--green);
+  font-size:clamp(27px,7vw,42px);
+  letter-spacing:1px;
+}
+.subtitle { color:var(--muted); margin-top:8px; }
+main { max-width:1000px; margin:auto; padding:12px; }
+.dashboard {
+  display:flex; align-items:center; justify-content:center;
+  gap:24px; flex-wrap:wrap; padding:20px;
+  border:1px solid var(--border); border-radius:20px;
+  background:rgba(13,40,24,.9);
+}
+.ring {
+  width:125px;height:125px;border-radius:50%;
+  display:grid;place-items:center;
+  background:conic-gradient(var(--green) var(--progress,0%),#244431 0);
+  position:relative;
+}
+.ring:before {
+  content:"";position:absolute;inset:9px;border-radius:50%;
+  background:#0d2818;
+}
+.ring strong { position:relative;font-size:26px; }
+.stats { display:flex;gap:22px;text-align:center; }
+.stat strong { display:block;font-size:24px;color:var(--green); }
+.stat span { font-size:12px;color:var(--muted); }
+.controls { display:flex;gap:8px;margin:18px 0; }
+input[type=search],select {
+  min-width:0;background:var(--panel);color:white;
+  border:1px solid var(--border);border-radius:10px;
+  padding:12px;font-size:15px;
+}
+input[type=search] { flex:1; }
+.grid {
+  display:grid;gap:10px;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+}
+.card {
+  position:relative;display:flex;flex-direction:column;
+  background:var(--panel);
+  border:1px solid var(--border);border-radius:13px;
+  overflow:hidden;
+}
+.card.done { border-color:var(--green);background:#123b22; }
+.poster {
+  width:100%;aspect-ratio:2/3;
+  background:linear-gradient(145deg,#25633a,#071b10);
+  border-bottom:1px solid #3b8050;
+  position:relative;
+}
+.poster img {
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:none;
+}
+.poster-fallback {
+  position:absolute;inset:0;
+  display:grid;place-items:center;text-align:center;
+  padding:6px;color:#eaffed;font-size:11px;font-weight:800;
+  overflow-wrap:anywhere;
+}
+.info { padding:8px 9px 10px;flex:1;min-width:0; }
+.title { font-weight:750;font-size:13px;line-height:1.35; }
+.kind { color:var(--muted);font-size:11px;margin-top:4px; }
+.card input {
+  position:absolute;top:7px;right:7px;z-index:2;
+  width:24px;height:24px;accent-color:#8df5a5;
+  cursor:pointer;
+}
+.num {
+  position:absolute;bottom:7px;left:7px;z-index:2;
+  min-width:22px;padding:2px 7px;
+  background:rgba(6,21,12,.85);
+  border:1px solid #438658;border-radius:9px;
+  color:var(--green);font-size:12px;font-weight:800;
+  text-align:center;line-height:1.4;
+}
+#modal {
+  display:none;position:fixed;inset:0;z-index:30;
+  background:rgba(4,12,7,.72);
+  align-items:center;justify-content:center;padding:16px;
+}
+#modal.show { display:flex; }
+#modal .panel {
+  background:var(--panel);
+  border:1px solid var(--border);border-radius:18px;
+  max-width:520px;width:100%;max-height:85vh;
+  overflow:auto;padding:16px;position:relative;
+}
+#modal .mrow { display:flex;gap:12px; }
+#modal .mposter {
+  width:86px;flex:0 0 86px;aspect-ratio:2/3;
+  border-radius:8px;object-fit:cover;
+  background:linear-gradient(145deg,#25633a,#071b10);
+  border:1px solid #3b8050;
+}
+#modal .mtitle {
+  color:var(--green);font-weight:800;
+  font-size:17px;line-height:1.3;
+}
+#modal .mnum {
+  display:inline-block;margin-top:6px;
+  background:rgba(6,21,12,.85);
+  border:1px solid #438658;border-radius:9px;
+  color:var(--green);font-size:12px;font-weight:800;
+  padding:2px 8px;
+}
+#modal .mclose {
+  position:absolute;top:8px;right:10px;
+  background:none;border:none;color:var(--muted);
+  font-size:22px;font-weight:800;padding:4px 8px;cursor:pointer;
+}
+#modal .msec {
+  margin-top:14px;border-top:1px solid var(--border);padding-top:12px;
+}
+#modal .mlabel {
+  color:var(--green);font-size:11px;font-weight:800;
+  letter-spacing:1px;margin-bottom:4px;
+}
+#modal .mtext { font-size:14px;line-height:1.55;color:#f0fff2; }
+button {
+  background:#164b2b;color:white;border:1px solid #438658;
+  padding:10px 13px;border-radius:10px;font-weight:700;
+}
+#celebration {
+  display:none;text-align:center;padding:25px;margin-top:20px;
+  border:1px solid var(--green);border-radius:18px;
+  color:var(--green);font-size:24px;font-weight:800;
+  text-shadow:0 0 18px rgba(141,245,165,.55);
+}
+#celebration.show { display:block; animation:pop-in 1s ease .8s backwards; }
+@keyframes pop-in {
+  0% { opacity:0; transform:scale(.6); }
+  60% { transform:scale(1.08); }
+  100% { opacity:1; transform:scale(1); }
+}
+footer { text-align:center;color:var(--muted);font-size:12px;padding:25px; }
+.confetti {
+  position:fixed;top:-12px;width:8px;height:13px;
+  animation:fall 3s linear forwards;pointer-events:none;z-index:10;
+}
+@keyframes fall { to { transform:translateY(110vh) rotate(700deg); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>MCU MOVIE TRACKER</h1>
+  <div class="subtitle">Your ultimate Marvel Cinematic Universe watchlist</div>
+</header>
+<main>
+  <section class="dashboard">
+    <div class="ring" id="ring"><strong id="percent">0%</strong></div>
+    <div class="stats">
+      <div class="stat"><strong id="watched">0</strong><span>WATCHED</span></div>
+      <div class="stat"><strong id="remaining">0</strong><span>LEFT</span></div>
+      <div class="stat"><strong id="total">0</strong><span>TOTAL</span></div>
+    </div>
+  </section>
+  <div class="controls">
+    <input type="search" id="search" placeholder="Search Marvel titles…">
+    <select id="filter">
+      <option value="all">All</option>
+      <option value="todo">Unwatched</option>
+      <option value="done">Watched</option>
+    </select>
+    <button id="tickAll" style="flex:0 0 auto">Tick all</button>
+  </div>
+  <div id="list" class="grid"></div>
+  <div id="celebration">CONGRATULATIONS!<br>
+    YOU ARE OFFICIALLY READY FOR DOOMSDAY!
+  </div>
+  <p style="text-align:center"><button id="reset">Reset progress</button></p>
+  <footer>Unofficial fan-made tracker. Poster artwork is bundled with the app; a title card appears where no artwork exists. Progress is saved on this device.</footer>
+</main>
+<div id="modal">
+    <div class="panel">
+      <button id="modalClose" aria-label="Close">✕</button>
+      <div class="mrow">
+        <img class="mposter" id="mPoster" alt="">
+        <div>
+          <div class="mtitle" id="mTitle"></div>
+          <span class="mnum" id="mNum"></span>
+        </div>
+      </div>
+      <div class="msec">
+        <div class="mlabel">ABOUT</div>
+        <div class="mtext" id="mAbout"></div>
+      </div>
+      <div class="msec">
+        <div class="mlabel">WHEN IT'S SET</div>
+        <div class="mtext" id="mSet"></div>
+      </div>
+    </div>
+  </div>
+<script>
+// Each entry: [title, "posters/<file>" or null, isSeries] — same order as the original watchlist.
+const titles = [
+["Captain America: The First Avenger","posters/captain-america-first-avenger.jpg",0],
+["X-Men: First Class","posters/x-men-first-class.jpg",0],
+["X-Men: Days of Future Past (past storyline)","posters/x-men-days-of-future-past.jpg",0],
+["X-Men Origins: Wolverine","posters/x-men-origins-wolverine.jpg",0],
+["X-Men: Apocalypse","posters/x-men-apocalypse.jpg",0],
+["X-Men: Dark Phoenix","posters/dark-phoenix.jpg",0],
+["Captain Marvel","posters/captain-marvel.jpg",0],
+["X-Men","posters/x-men.jpg",0],
+["Spider-Man (2002)","posters/spider-man-2002.jpg",0],
+["X2: X-Men United","posters/x2.jpg",0],
+["Spider-Man 2 (2004)","posters/spider-man-2-2004.jpg",0],
+["X-Men: The Last Stand","posters/x-men-the-last-stand.jpg",0],
+["Spider-Man 3 (2007)","posters/spider-man-3-2007.jpg",0],
+["Iron Man","posters/iron-man.jpg",0],
+["Iron Man 2","posters/iron-man-2.jpg",0],
+["The Incredible Hulk","posters/incredible-hulk.jpg",0],
+["Thor","posters/thor.jpg",0],
+["The Avengers","posters/avengers.jpg",0],
+["The Amazing Spider-Man","posters/amazing-spider-man.jpg",0],
+["Thor: The Dark World","posters/thor-dark-world.jpg",0],
+["Iron Man 3","posters/iron-man-3.jpg",0],
+["The Wolverine","posters/the-wolverine.jpg",0],
+["Captain America: The Winter Soldier","posters/captain-america-winter-soldier.jpg",0],
+["The Amazing Spider-Man 2","posters/amazing-spider-man-2.jpg",0],
+["Guardians of the Galaxy","posters/guardians-of-the-galaxy.jpg",0],
+["Guardians of the Galaxy Vol. 2","posters/guardians-vol-2.jpg",0],
+["I Am Groot Seasons 1–2","posters/i-am-groot.jpg",1],
+["Daredevil Season 1","posters/daredevil.jpg",1],
+["Jessica Jones Season 1","posters/jessica-jones.jpg",1],
+["Avengers: Age of Ultron","posters/avengers-age-of-ultron.jpg",0],
+["Ant-Man","posters/ant-man.jpg",0],
+["Daredevil Season 2","posters/daredevil.jpg",1],
+["Luke Cage Season 1","posters/luke-cage.jpg",1],
+["Iron Fist Season 1","posters/iron-fist.jpg",1],
+["The Defenders","posters/the-defenders.jpg",1],
+["Captain America: Civil War","posters/captain-america-civil-war.jpg",0],
+["Black Widow","posters/black-widow.jpg",0],
+["Black Panther","posters/black-panther.jpg",0],
+["Spider-Man: Homecoming","posters/spider-man-homecoming.jpg",0],
+["The Punisher Season 1","posters/the-punisher.jpg",1],
+["Doctor Strange","posters/doctor-strange.jpg",0],
+["Jessica Jones Season 2","posters/jessica-jones.jpg",1],
+["Luke Cage Season 2","posters/luke-cage.jpg",1],
+["Iron Fist Season 2","posters/iron-fist.jpg",1],
+["Daredevil Season 3","posters/daredevil.jpg",1],
+["The Punisher Season 2","posters/the-punisher.jpg",1],
+["Jessica Jones Season 3","posters/jessica-jones.jpg",1],
+["Thor: Ragnarok","posters/thor-ragnarok.jpg",0],
+["Deadpool","posters/deadpool.jpg",0],
+["Deadpool 2","posters/deadpool-2.jpg",0],
+["Ant-Man and the Wasp","posters/ant-man-and-the-wasp.jpg",0],
+["Avengers: Infinity War","posters/avengers-infinity-war.jpg",0],
+["Avengers: Endgame","posters/avengers-endgame.jpg",0],
+["Loki Season 1","posters/loki.jpg",1],
+["What If...? Season 1","posters/what-if.jpg",1],
+["WandaVision","posters/wandavision.jpg",1],
+["The Falcon and the Winter Soldier","posters/falcon-winter-soldier.jpg",1],
+["Shang-Chi and the Legend of the Ten Rings","posters/shang-chi.jpg",0],
+["Spider-Man: Far From Home","posters/spider-man-far-from-home.jpg",0],
+["Eternals","posters/eternals.jpg",0],
+["Spider-Man: No Way Home","posters/spider-man-no-way-home.jpg",0],
+["Doctor Strange in the Multiverse of Madness","posters/doctor-strange-multiverse-of-madness.jpg",0],
+["Hawkeye","posters/hawkeye.jpg",1],
+["Moon Knight","posters/moon-knight.jpg",1],
+["Black Panther: Wakanda Forever","posters/wakanda-forever.jpg",0],
+["Echo","posters/echo.jpg",1],
+["She-Hulk: Attorney at Law","posters/she-hulk.jpg",1],
+["Ms. Marvel","posters/ms-marvel.jpg",1],
+["Thor: Love and Thunder","posters/thor-love-and-thunder.jpg",0],
+["Werewolf by Night","posters/werewolf-by-night.jpg",1],
+["The Guardians of the Galaxy Holiday Special","posters/guardians-holiday-special.jpg",1],
+["Ant-Man and the Wasp: Quantumania","posters/ant-man-quantumania.jpg",0],
+["Guardians of the Galaxy Vol. 3","posters/guardians-vol-3.jpg",0],
+["Secret Invasion","posters/secret-invasion.jpg",1],
+["The Marvels","posters/the-marvels.jpg",0],
+["Loki Season 2","posters/loki.jpg",1],
+["What If...? Season 2","posters/what-if.jpg",1],
+["What If...? Season 3","posters/what-if.jpg",1],
+["X-Men '97 Season 1","posters/x-men-97.jpg",1],
+["Logan","posters/logan.jpg",0],
+["The New Mutants","posters/the-new-mutants.jpg",0],
+["Deadpool & Wolverine","posters/deadpool-wolverine.jpg",0],
+["Agatha All Along","posters/agatha-all-along.jpg",1],
+["Marvel Zombies","posters/marvel-zombies.jpg",1],
+["Captain America: Brave New World","posters/captain-america-brave-new-world.jpg",0],
+["Daredevil: Born Again Season 1","posters/daredevil-born-again.jpg",1],
+["Thunderbolts*","posters/thunderbolts.jpg",0],
+["Ironheart","posters/ironheart.jpg",1],
+["The Fantastic Four: First Steps","posters/fantastic-four-first-steps.jpg",0],
+["Eyes of Wakanda","posters/eyes-of-wakanda.jpg",1],
+["Wonder Man","posters/wonder-man.jpg",1],
+["Daredevil: Born Again Season 2","posters/daredevil-born-again.jpg",1],
+["The Punisher: One Last Kill","posters/punisher-one-last-kill.jpg",1],
+["Spider-Man: Brand New Day","posters/spider-man-brand-new-day.jpg",0],
+];
+
+// Release year, when it's set, and a short blurb for the detail sheet.
+const info = {
+"Captain America: The First Avenger":{y:"2011",set:"MCU, 1943–1945, during World War II",b:"Steve Rogers becomes Captain America to fight HYDRA and its leader Red Skull."},
+"X-Men: First Class":{y:"2011",set:"X-Men films, 1962, Cuban Missile Crisis era",b:"Young Charles Xavier and Erik Lehnsherr recruit mutants and split over ideology."},
+"X-Men: Days of Future Past (past storyline)":{y:"2014",set:"X-Men films, 1973 (the film's future is 2023)",b:"Wolverine is sent back to 1973 to stop Mystique from altering mutant history."},
+"X-Men Origins: Wolverine":{y:"2009",set:"X-Men films, spans 1845–2005, key events in 1979 and 2005",b:"Logan's origin: brotherhood with Victor Creed, Weapon X, and revenge."},
+"X-Men: Apocalypse":{y:"2016",set:"X-Men films, 1983",b:"The world's first mutant awakens in 1983 and gathers Four Horsemen."},
+"X-Men: Dark Phoenix":{y:"2019",set:"X-Men films, 1992",b:"Jean Grey is consumed by a cosmic force while the X-Men face an alien threat."},
+"Captain Marvel":{y:"2019",set:"MCU, 1995",b:"Carol Danvers rediscovers her past on Earth amid the Kree–Skrull war."},
+"X-Men":{y:"2000",set:"X-Men films, early 2000s",b:"The X-Men rescue Rogue and battle Magneto's Brotherhood."},
+"Spider-Man (2002)":{y:"2002",set:"Raimi trilogy, 2002, present-day New York",b:"Peter Parker gains spider powers and faces the Green Goblin."},
+"X2: X-Men United":{y:"2003",set:"X-Men films, shortly after X-Men (early 2000s)",b:"William Stryker attacks the Xavier school; mutants and Magneto briefly team up."},
+"Spider-Man 2 (2004)":{y:"2004",set:"Raimi trilogy, 2004, two years after Spider-Man",b:"Peter juggles life and Doctor Octopus while doubting being Spider-Man."},
+"X-Men: The Last Stand":{y:"2006",set:"X-Men films, years after X2",b:"A cure for mutation splits mutants; Jean returns as the Dark Phoenix."},
+"Spider-Man 3 (2007)":{y:"2007",set:"Raimi trilogy, 2007, months after Spider-Man 2",b:"Peter battles Venom, Sandman, and his own dark side."},
+"Iron Man":{y:"2008",set:"MCU, 2008",b:"Tony Stark builds an armor to escape captivity and becomes Iron Man."},
+"Iron Man 2":{y:"2010",set:"MCU, 2011, six months after Iron Man",b:"Tony fights palladium poisoning and Whiplash while S.H.I.E.L.D. circles."},
+"The Incredible Hulk":{y:"2008",set:"MCU, 2011, around the events of Iron Man 2",b:"Bruce Banner is hunted while trying to cure his Hulk condition."},
+"Thor":{y:"2011",set:"MCU, 2011",b:"Thor is banished to Earth and learns humility to reclaim Mjolnir."},
+"The Avengers":{y:"2012",set:"MCU, 2012, the Battle of New York",b:"Loki invades Earth; the Avengers assemble for the first time."},
+"The Amazing Spider-Man":{y:"2012",set:"Amazing Spider-Man films, 2012, present-day New York",b:"Peter re-explores his origins and faces the Lizard at Oscorp."},
+"Thor: The Dark World":{y:"2013",set:"MCU, 2013, a year after the Battle of New York",b:"The Aether (Reality Stone) awakens and Malekith seeks the Convergence."},
+"Iron Man 3":{y:"2013",set:"MCU, Christmas 2012",b:"Tony battles the Mandarin after the trauma of New York."},
+"The Wolverine":{y:"2013",set:"X-Men films, 2013, after The Last Stand",b:"Logan loses his healing factor in Japan and fights the Silver Samurai."},
+"Captain America: The Winter Soldier":{y:"2014",set:"MCU, 2014, two years after the Battle of New York",b:"HYDRA infiltrates S.H.I.E.L.D.; Steve faces his brainwashed friend Bucky."},
+"The Amazing Spider-Man 2":{y:"2014",set:"Amazing Spider-Man films, 2014",b:"Peter faces Electro and the Green Goblin; Gwen's fate changes everything."},
+"Guardians of the Galaxy":{y:"2014",set:"MCU, 2014, deep space",b:"A ragtag crew steals a Power Stone orb from Ronan."},
+"Guardians of the Galaxy Vol. 2":{y:"2017",set:"MCU, 2014, months after the first Guardians",b:"The team meets Peter's father Ego while Rocket and Groot cause chaos."},
+"I Am Groot Seasons 1–2":{y:"2022",set:"MCU, between Guardians Vol. 2 and Infinity War",b:"Baby Groot's shorts: tiny misadventures around the galaxy."},
+"Daredevil Season 1":{y:"2015",set:"MCU (Defenders saga), 2015, Hell's Kitchen",b:"Blind lawyer Matt Murdock fights crime lord Wilson Fisk by night."},
+"Jessica Jones Season 1":{y:"2015",set:"MCU (Defenders saga), 2015",b:"PI Jessica Jones is stalked by mind-controller Kilgrave."},
+"Avengers: Age of Ultron":{y:"2015",set:"MCU, 2015",b:"Ultron seeks extinction; the Avengers forge Vision at Sokovia."},
+"Ant-Man":{y:"2015",set:"MCU, 2015",b:"Scott Lang steals the Yellowjacket suit under Hank Pym's tutelage."},
+"Daredevil Season 2":{y:"2016",set:"MCU (Defenders saga), 2016",b:"Daredevil meets the Punisher and his ex Elektra as the Hand rises."},
+"Luke Cage Season 1":{y:"2016",set:"MCU (Defenders saga), 2016, Harlem",b:"Luke Cage becomes Harlem's bulletproof hero against Cottonmouth."},
+"Iron Fist Season 1":{y:"2017",set:"MCU (Defenders saga), 2016–2017",b:"Danny Rand returns as the Iron Fist to reclaim his company."},
+"The Defenders":{y:"2017",set:"MCU (Defenders saga), 2017",b:"Four heroes unite to stop the Hand from destroying New York."},
+"Captain America: Civil War":{y:"2016",set:"MCU, 2016",b:"The Avengers split over the Sokovia Accords after Bucky's framing."},
+"Black Widow":{y:"2021",set:"MCU, immediately after Civil War (2016)",b:"Natasha confronts the Red Room between Civil War and Infinity War."},
+"Black Panther":{y:"2018",set:"MCU, 2016–2017, a week after Civil War",b:"T'Challa becomes king and faces Killmonger for Wakanda's soul."},
+"Spider-Man: Homecoming":{y:"2017",set:"MCU, 2016, months after Civil War",b:"Peter balances school and Vulture Adrian Toomes under Tony's wing."},
+"The Punisher Season 1":{y:"2017",set:"MCU (Defenders saga), 2017",b:"Frank Castle wages war on those behind his family's murder."},
+"Doctor Strange":{y:"2016",set:"MCU, 2016–2017",b:"A surgeon finds the mystic arts and battles Dormammu."},
+"Jessica Jones Season 2":{y:"2018",set:"MCU (Defenders saga), 2017",b:"Jessica's past and the IGH experiments catch up with her."},
+"Luke Cage Season 2":{y:"2018",set:"MCU (Defenders saga), 2017",b:"Luke's fame grows; Bushmaster and his father's past haunt him."},
+"Iron Fist Season 2":{y:"2018",set:"MCU (Defenders saga), 2017",b:"Danny confronts his childhood friend Davos."},
+"Daredevil Season 3":{y:"2018",set:"MCU (Defenders saga), 2017",b:"Fisk returns; Daredevil rises from presumed death in black armor."},
+"The Punisher Season 2":{y:"2019",set:"MCU (Defenders saga), 2017–2018",b:"Frank protects a girl hunted by Pilgrim while a murderer stalks him."},
+"Jessica Jones Season 3":{y:"2019",set:"MCU (Defenders saga), 2017",b:"Jessica faces her brother Phillip in a final reckoning."},
+"Thor: Ragnarok":{y:"2017",set:"MCU, 2017",b:"Thor escapes Sakaar's Grandmaster as Hela claims Asgard."},
+"Deadpool":{y:"2016",set:"Deadpool films, 2016",b:"Mercenary Wade Wilson gains a healing factor and hunts Ajax."},
+"Deadpool 2":{y:"2018",set:"Deadpool films, 2018",b:"Wade forms X-Force to save a mutant boy from Cable."},
+"Ant-Man and the Wasp":{y:"2018",set:"MCU, 2018, immediately before Infinity War",b:"A Quantum Realm rescue collides with the Snap."},
+"Avengers: Infinity War":{y:"2018",set:"MCU, 2018",b:"Thanos collects all six stones; half of all life turns to dust."},
+"Avengers: Endgame":{y:"2019",set:"MCU, 2018–2023, five years after the Snap (plus a time heist)",b:"The Avengers pull a time heist and finally end Thanos."},
+"Loki Season 1":{y:"2021",set:"MCU, outside time — the TVA (branches of 2012 and 2018)",b:"A 2012 Loki variant joins the TVA; the Sacred Timeline cracks."},
+"What If...? Season 1":{y:"2021",set:"MCU, across the multiverse",b:"The Watcher narrates alternate multiversal Marvel stories."},
+"WandaVision":{y:"2021",set:"MCU, 3 weeks after Endgame (2023)",b:"Wanda traps a town in sitcom realities; Vision 2.0 is born."},
+"The Falcon and the Winter Soldier":{y:"2021",set:"MCU, 6 months after Endgame (2024)",b:"Sam accepts the Captain America mantle while the Flag-Smashers rise."},
+"Shang-Chi and the Legend of the Ten Rings":{y:"2021",set:"MCU, 2023, present-day San Francisco",b:"Shang-Chi faces his father Wenwu and the Ten Rings at Ta Lo."},
+"Spider-Man: Far From Home":{y:"2019",set:"MCU, 8 months after Endgame (2024)",b:"Peter joins Mysterio on a European trip; identities and illusions collide."},
+"Eternals":{y:"2021",set:"MCU, 2023–2024, after Endgame",b:"Immortal Eternals reunite to stop the Deviant-fueled Emergence."},
+"Spider-Man: No Way Home":{y:"2021",set:"MCU, 2024, moments after Far From Home",b:"A botched spell pulls multiversal villains (and Spider-Men) into Peter's world."},
+"Doctor Strange in the Multiverse of Madness":{y:"2022",set:"MCU, 2024, weeks after No Way Home",b:"Strange defends America Chavez from the Scarlet Witch across universes."},
+"Hawkeye":{y:"2021",set:"MCU, Christmas 2024",b:"Clint trains Kate Bishop over a Christmas rooftop chase."},
+"Moon Knight":{y:"2022",set:"MCU, 2025",b:"Steven Grant's alters serve the moon god Khonshu."},
+"Black Panther: Wakanda Forever":{y:"2022",set:"MCU, 2025, a year after Endgame's aftermath",b:"Wakanda mourns T'Challa as Namor and Talokan surface."},
+"Echo":{y:"2024",set:"MCU, 2025, after Hawkeye",b:"Maya Lopez confronts her Kingpin past and her ancestors."},
+"She-Hulk: Attorney at Law":{y:"2022",set:"MCU, 2025",b:"Jen Walters juggles law and green superhero life."},
+"Ms. Marvel":{y:"2022",set:"MCU, 2025",b:"Kamala Khan's bangle unlocks her cosmic mutation."},
+"Thor: Love and Thunder":{y:"2022",set:"MCU, 2025",b:"Gorr the God Butcher hunts gods; Thor meets Mighty Thor Jane."},
+"Werewolf by Night":{y:"2022",set:"MCU, 2025",b:"Monster-hunters gather at Bloodstone Manor."},
+"The Guardians of the Galaxy Holiday Special":{y:"2022",set:"MCU, Christmas 2025",b:"Drax and Mantis kidnap Kevin Bacon for Christmas."},
+"Ant-Man and the Wasp: Quantumania":{y:"2023",set:"MCU, 2026",b:"The family is pulled into the Quantum Realm to face Kang."},
+"Guardians of the Galaxy Vol. 3":{y:"2023",set:"MCU, 2026",b:"Rocket's origin and the High Evolutionary close the Guardians' arc."},
+"Secret Invasion":{y:"2023",set:"MCU, 2026",b:"Skrull infiltrators plot to conquer Earth; Fury returns."},
+"The Marvels":{y:"2023",set:"MCU, 2026",b:"Carol, Monica, and Kamala swap places when powers entangle."},
+"Loki Season 2":{y:"2023",set:"MCU, outside time — the TVA",b:"Loki time-slips to save the TVA and becomes the tree at the end of time."},
+"What If...? Season 2":{y:"2023",set:"MCU, across the multiverse",b:"More Watcher-narrated variants, including a 1602 world."},
+"What If...? Season 3":{y:"2024",set:"MCU, across the multiverse",b:"The final season of multiversal \"what if\" stories."},
+"X-Men '97 Season 1":{y:"2024",set:"X-Men animated universe, 1997, months after the original series",b:"The 90s X-Men animated team returns after Xavier's apparent death."},
+"Logan":{y:"2017",set:"Wolverine films, 2029",b:"A weary Wolverine escorts a young mutant across a dying America."},
+"The New Mutants":{y:"2020",set:"X-Men films universe, 2020",b:"Young mutants in a facility face the Demon Bear."},
+"Deadpool & Wolverine":{y:"2024",set:"MCU / multiverse, 2024",b:"The TVA recruits Deadpool to save his dying universe with Wolverine."},
+"Agatha All Along":{y:"2024",set:"MCU, 3 years after WandaVision (2026)",b:"Agatha walks the Witches' Road to reclaim her powers."},
+"Marvel Zombies":{y:"2025",set:"MCU alternate timeline — a zombie quantum outbreak",b:"A quantum outbreak zombifies heroes in an alternate universe."},
+"Captain America: Brave New World":{y:"2025",set:"MCU, 2027",b:"Sam's first outing as Cap collides with Red Hulk Thunderbolt Ross."},
+"Daredevil: Born Again Season 1":{y:"2025",set:"MCU, 2026–2027, a year after Echo",b:"Matt Murdock rebuilds while Mayor Fisk wages war on vigilantes."},
+"Thunderbolts*":{y:"2025",set:"MCU, 2027",b:"Antiheroes (Yelena, Bucky, and more) become the \"New Avengers\"."},
+"Ironheart":{y:"2025",set:"MCU, mostly 2025 after Wakanda Forever, finale in 2027",b:"Riri Williams builds her armor while the Hood tempts dark magic."},
+"The Fantastic Four: First Steps":{y:"2025",set:"Earth-828, a 1960s retro-futuristic world",b:"The Fantastic Four face Galactus and the Silver Surfer."},
+"Eyes of Wakanda":{y:"2025",set:"Wakanda's past, from antiquity onward",b:"Wakandan agents guard vibranium across history."},
+"Wonder Man":{y:"2026",set:"MCU, 2026",b:"Actor Simon Williams lands a superhero role while gaining real powers."},
+"Daredevil: Born Again Season 2":{y:"2026",set:"MCU, 2027",b:"Matt and Fisk's war escalates toward a city on the brink."},
+"The Punisher: One Last Kill":{y:"2026",set:"MCU, 2027, after Daredevil: Born Again",b:"Frank comes out of hiding for one final mission."},
+"Spider-Man: Brand New Day":{y:"2026",set:"MCU, after No Way Home (~2027)",b:"Peter starts fresh, unknown and alone in a new New York."},
+};
+
+const list = document.getElementById("list");
+const key = "doom-protocol-progress";
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(key) || "{}") || {}; }
+catch(e) { saved = {}; }
+
+function render() {
+  list.innerHTML = "";
+  titles.forEach(([title,poster,isSeries],i) => {
+    const card = document.createElement("article");
+    card.className = "card" + (saved[i] ? " done" : "");
+    card.dataset.title = title.toLowerCase();
+    card.dataset.index = i;
+
+    const posterBox = document.createElement("div");
+    posterBox.className = "poster";
+    posterBox.setAttribute("role","img");
+    posterBox.setAttribute("aria-label",title + " poster");
+    const img = document.createElement("img");
+    img.alt = title + " poster";
+    const fallback = document.createElement("div");
+    fallback.className = "poster-fallback";
+    fallback.textContent = title;
+    posterBox.append(img,fallback);
+    if(poster) {
+      img.onload = () => {
+        img.style.display = "block";
+        fallback.style.display = "none";
+      };
+      img.src = poster; // on error the title card simply stays visible
+    }
+
+    const info = document.createElement("div");
+    info.className = "info";
+    const name = document.createElement("div");
+    name.className = "title";
+    name.textContent = title;
+    const kind = document.createElement("div");
+    kind.className = "kind";
+    kind.textContent = isSeries ? "Series / season" : "Movie or special";
+    info.append(name,kind);
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = !!saved[i];
+    cb.setAttribute("aria-label","Mark " + title + " as watched");
+    cb.addEventListener("change",() => {
+      if(cb.checked) saved[i] = true; else delete saved[i];
+      try { localStorage.setItem(key,JSON.stringify(saved)); } catch(e) {}
+      card.classList.toggle("done",cb.checked);
+      update();
+    });
+
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = i + 1;
+
+    posterBox.append(num);
+    card.addEventListener("click",e => {
+        if(e.target === cb) return; // tapping the checkbox only toggles progress
+        openModal(i);
+      });
+
+      card.append(posterBox,info,cb);
+    list.append(card);
+  });
+  update();
+}
+
+let _prevDone = -1;
+function update() {
+  const done = titles.reduce((n,t,i) => n + (saved[i] ? 1 : 0),0);
+  const pct = Math.round(done/titles.length*100);
+  document.getElementById("watched").textContent = done;
+  document.getElementById("remaining").textContent = titles.length-done;
+  document.getElementById("total").textContent = titles.length;
+  document.getElementById("percent").textContent = pct + "%";
+  document.getElementById("ring").style.setProperty("--progress",pct+"%");
+  document.getElementById("tickAll").textContent =
+    done === titles.length ? "Untick all" : "Tick all";
+  const complete = done === titles.length;
+  document.getElementById("celebration").classList.toggle("show",complete);
+  // Celebrate on every transition to complete — ticking the last one or "Tick all".
+  if(complete && _prevDone !== -1 && _prevDone < titles.length) celebrate();
+  _prevDone = done;
+  filterItems();
+}
+
+function filterItems() {
+  const q = document.getElementById("search").value.toLowerCase().trim();
+  const f = document.getElementById("filter").value;
+  [...list.children].forEach(card => {
+    const done = !!saved[card.dataset.index];
+    card.style.display = card.dataset.title.includes(q) &&
+      (f === "all" || (f === "done" && done) || (f === "todo" && !done))
+      ? "flex" : "none";
+  });
+}
+
+function celebrate() {
+  // Confetti, then the green message rolls in — even when triggered by "Tick all".
+  for(let i=0;i<100;i++) {
+    const p = document.createElement("i");
+    p.className = "confetti";
+    p.style.left = Math.random()*100 + "vw";
+    p.style.background = ["#4de879","#b6ffbf","#f9e66d","#72d8ff","#e8a7ff"][i%5];
+    p.style.animationDelay = Math.random()*1.5 + "s";
+    document.body.append(p);
+    setTimeout(() => p.remove(),5000);
+  }
+  setTimeout(() => {
+    document.getElementById("celebration")
+      .scrollIntoView({behavior:"smooth",block:"center"});
+  },900);
+}
+
+function openModal(i) {
+  const t = titles[i], d = info[t[0]] || {};
+  const mp = document.getElementById("mPoster");
+  if(t[1]) {
+    mp.style.display = "block";
+    mp.src = t[1];
+    mp.alt = t[0] + " poster";
+  } else {
+    mp.style.display = "none";
+  }
+  document.getElementById("mTitle").textContent = t[0];
+  document.getElementById("mNum").textContent = "#" + (i + 1) + " of " + titles.length;
+  document.getElementById("mAbout").textContent = d.b || "No details available yet.";
+  document.getElementById("mSet").textContent = d.set || "Setting not announced yet.";
+  document.getElementById("modal").classList.add("show");
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("show");
+}
+
+document.getElementById("modalClose").addEventListener("click",closeModal);
+document.getElementById("modal").addEventListener("click",e => {
+  if(e.target === e.currentTarget) closeModal();
+});
+
+document.getElementById("tickAll").addEventListener("click",() => {
+  const allDone = titles.every((t,i) => saved[i]);
+  if(allDone) {
+    saved = {};
+  } else {
+    titles.forEach((t,i) => { saved[i] = true; });
+  }
+  try { localStorage.setItem(key,JSON.stringify(saved)); } catch(e) {}
+  render();
+});
+
+document.getElementById("search").addEventListener("input",filterItems);
+document.getElementById("filter").addEventListener("change",filterItems);
+document.getElementById("reset").addEventListener("click",() => {
+  if(confirm("Reset all watch progress?")) {
+    saved = {};
+    try { localStorage.removeItem(key); } catch(e) {}
+    render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
